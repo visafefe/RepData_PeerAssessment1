@@ -5,21 +5,114 @@ output:
     keep_md: true
 ---
 
+library(Hmisc)
+library(ggplot2)
+library(dplyr)
 
 ## Loading and preprocessing the data
+### Data is presented on the github repo as "activity.zip" we will need to unzip before ### to read And load data
+unzip("activity.zip")
+activity_tbl <- read.csv("activity.csv")
+str(activity_tbl)
 
+total <- tapply(d_activity$steps, d_activity$date, FUN = sum, na.rm = TRUE)
+total1 <- as.data.frame(total)
+str(total1)
 
 
 ## What is mean total number of steps taken per day?
+###The Mean 
+mean_d_activity <- mean(total, na.rm = TRUE)
+###The Median
+median_d_activity <- median(total, na.rm = TRUE)
 
+ggplot(total1, aes(total1$total)) + 
+  labs(title = "Histogram Frequency Distribution by Step Activity",
+       y="% Frequency", x="Steps per Day")+
+  geom_histogram(col="black", aes(fill=..count..),alpha = .8,binwidth = 2000)+
+  geom_vline(xintercept = mean_d_activity, colour="red", linetype = "longdash")+ 
+  geom_vline(xintercept = median_d_activity, colour="green", linetype = "solid")+
+  annotate("text", label = "Mean", x = mean_d_activity, y = 16, colour = "red") +
+  annotate("text", label = "Median", x = median_d_activity, y = 13,colour = "green")
 
 
 ## What is the average daily activity pattern?
-
+### time series plot of the 5-minute interval 
+av_day_activity <- aggregate(x = list(y1=d_activity$steps), by = list(x1=d_activity$interval), 
+                      FUN = mean, na.rm = TRUE)
+ggplot(data = av_day_activity, aes(x = x1, y = y1)) + 
+  geom_line(col="blue") + xlab("5-minute interval") + 
+  ylab("average number of steps ")
+### 5-minute interval containing the maximum number of steps?
+intv <- av_day_activity[which.max(av_day_activity$y1), ]
+print(paste("The interval",intv$x1, "has the maximum average value of steps",round(intv$y1)))
 
 
 ## Imputing missing values
+### Many days/intervals are missing values (coded as NA)
+missing_day_activity <- is.na(activity_tbl$steps)
+### How many missing
+table(missing)
+missing_day_activity <- is.na(activity_tbl$steps)
+missing_day_activity <- table (missing_day_activity)
 
+print(paste("Number of missing value",missing_day_activity[2:2]))
+### Filling missing values with mean value for that 5-minute interval
+### Creating the requested dataset
+
+fill_miss_tbl <- activity_tbl
+fill_miss_tbl$steps <- round(impute(activity_tbl$steps, fun=mean))
+
+print("Verfied")
+sum(is.na(fill_miss_tbl[,1]))
+
+
+
+new_total <- tapply(fill_miss_tbl$steps, fill_miss_tbl$date, FUN = sum)
+new_total1 <- as.data.frame(new_total)
+
+mean_d_activity1 <- mean(new_total, na.rm = TRUE)
+median_d_activity1 <- median(new_total, na.rm = TRUE)
+
+### Plotting Histogram
+ggplot(new_total1, aes(new_total1$new_total)) + 
+  labs(title = "Histogram Frequency Distribution by Step Activity",
+       y="% Frequency", x="Steps per Day")+
+  geom_histogram(col="black", aes(fill=..count..),alpha = .8,binwidth = 2000)+
+  geom_vline(xintercept = mean_d_activity1, colour="red", linetype = "longdash")+ 
+  geom_vline(xintercept = median_d_activity1, colour="green", linetype = "solid")+
+  annotate("text", label = "Mean", x = mean_d_activity1, y = 16, colour = "red") +
+  annotate("text", label = "Median", x = median_d_activity1, y = 13,colour = "green")
+
+print ("imputing missing data on the estimates of the total daily number of steps changes")
+print ("Mean and median values...They become higher after imputing missing data")
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+###Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating ###whether a given date is a week_day or week_end.
+
+day_week <- function(date_val) 
+{
+  d <- weekdays(as.Date(date_val, '%Y-%m-%d'))
+  if  (!(d == 'Saturday' || d == 'Sunday'||d == 'samedi' || d == 'dimanche')) 
+  {
+    x <- 'Week_In'
+  } 
+  else 
+  {
+    x <- 'Week_end'
+  }
+  x
+}
+
+
+### Creating a new column to activity_tbl dataset
+
+fill_miss_tbl$day_type <- as.factor(sapply(fill_miss_tbl$date,day_week))
+Step_day<- aggregate(steps ~ interval + day_type, data = fill_miss_tbl, mean)
+
+### Plooting
+ggplot(Step_day, aes(interval, steps)) + geom_line(col="blue") + facet_grid(day_type ~ .) +
+  xlab("5-minute interval") + ylab("Number of steps")
+
+
